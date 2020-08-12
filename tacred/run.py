@@ -5,6 +5,7 @@ import sys
 import torch
 import emmental
 from data import create_dataloaders, load_data
+from dataloader import TACREDDataset
 from emmental import Meta
 from emmental.data import EmmentalDataLoader, EmmentalDataset
 from emmental.learner import EmmentalLearner
@@ -139,52 +140,37 @@ if __name__ == "__main__":
     ### DATASETS ###
     datasets = {}
     data = []  
-
-    print(args.task) ## TODO: figure out why this converts to 'T' 'A' .. 'D' and then get rid of task_names
-    task_names = ['TACRED']
-    for task_name in task_names:
-        for split in ["train", "dev", "test"]:
-            filename = args.data_dir + '/' + split + '.json'
-            data, labels = load_data(
-                filename,
-                opt, 
-                vocab, 
-                evaluation=False
-            )
-            
-            X_dict = {
-                "data": data
-            }
-            Y_dict = {
-                "labels": labels
-            }
-
-            if task_name not in datasets:
-                datasets[task_name] = {}
-
-            datasets[task_name][split] =EmmentalDataset(
-                    name=task_name,
-                    X_dict=X_dict,
-                    Y_dict=Y_dict
-            )
-            datasets[task_name]["nclasses"] = opt['num_class']
-    print('done with datasets')
-
-    ### DATA LOADERS ###
     dataloaders = []
-    for task_name in task_names:
-        for split in ["train", "dev", "test"]:
-            dataloaders.append(
-                EmmentalDataLoader(
-                    task_to_label_dict={task_name: "labels"},
-                    dataset=datasets[task_name][split],
-                    split=split,
-                    batch_size=args.batch_size,
-                    shuffle=True if split == "train" else False,
-                )
+    name = 'tacred'
+    task_names = [name]
+    task_to_label_dict = {task_name: task_name for task_name in task_names}
+    
+    for split in ["train", "dev", "test"]:
+        filename = args.data_dir + '/' + split + '.json'
+        dataset = TACREDDataset(
+            name,
+            filename,
+            args.batch_size, 
+            opt, 
+            vocab, 
+            evaluation=False
+        )
+        logger.info(
+            f"Loaded {split} for {name} containing {len(dataset)} samples."
+        )
+        print(f"Loaded {split} for {name} containing {len(dataset)} samples.")
+        dataloaders.append(
+            EmmentalDataLoader(
+                task_to_label_dict={name: "label"},
+                dataset=dataset,
+                split=split,
+                shuffle=True if split == "train" else False,
+                batch_size=1,#args.batch_size,
+                #num_workers=8,
             )
-            logger.info(f"Built dataloader for {task_name} {split} set.") 
-            print('done with dataloaders: ', split)
+        )
+        logger.info(f"Built dataloader for {dataset.name} {split} set.")
+        print(f"Built dataloader for {dataset.name} {split} set.")
 
     tasks = {
         task_name: create_task(
@@ -235,67 +221,4 @@ if __name__ == "__main__":
 # #         print("new best model saved.")
 # #     if epoch % opt['save_epoch'] != 0:
 # #         os.remove(model_file)
-        # model
-    
-    
-    
-    
-#     model = RelationModel(opt, emb_matrix=emb_matrix)
-
-#     id2label = dict([(v,k) for k,v in constant.LABEL_TO_ID.items()])
-#     dev_f1_history = []
-#     current_lr = opt['lr']
-
-#     global_step = 0
-#     global_start_time = time.time()
-#     format_str = '{}: step {}/{} (epoch {}/{}), loss = {:.6f} ({:.3f} sec/batch), lr: {:.6f}'
-#     max_steps = len(train_batch) * opt['num_epoch']
-
-#     # start training
-#     for epoch in range(1, opt['num_epoch']+1):
-#         train_loss = 0
-#         for i, batch in enumerate(train_batch):
-#             start_time = time.time()
-#             global_step += 1
-#             loss = model.update(batch)
-#             train_loss += loss
-#             if global_step % opt['log_step'] == 0:
-#                 duration = time.time() - start_time
-#                 print(format_str.format(datetime.now(), global_step, max_steps, epoch,\
-#                     opt['num_epoch'], loss, duration, current_lr))
-
-#         # eval on dev
-#         print("Evaluating on dev set...")
-#         predictions = []
-#         dev_loss = 0
-#         for i, batch in enumerate(dev_batch):
-#             preds, _, loss = model.predict(batch)
-#             predictions += preds
-#             dev_loss += loss
-#         predictions = [id2label[p] for p in predictions]
-#         dev_p, dev_r, dev_f1 = scorer.score(dev_batch.gold(), predictions)
-    
-#         train_loss = train_loss / train_batch.num_examples * opt['batch_size'] # avg loss per batch
-#         dev_loss = dev_loss / dev_batch.num_examples * opt['batch_size']
-#         print("epoch {}: train_loss = {:.6f}, dev_loss = {:.6f}, dev_f1 = {:.4f}".format(epoch,\
-#                 train_loss, dev_loss, dev_f1))
-#         file_logger.log("{}\t{:.6f}\t{:.6f}\t{:.4f}".format(epoch, train_loss, dev_loss, dev_f1))
-
-#         # save
-#         model_file = model_save_dir + '/checkpoint_epoch_{}.pt'.format(epoch)
-#         model.save(model_file, epoch)
-#         if epoch == 1 or dev_f1 > max(dev_f1_history):
-#             copyfile(model_file, model_save_dir + '/best_model.pt')
-#             print("new best model saved.")
-#         if epoch % opt['save_epoch'] != 0:
-#             os.remove(model_file)
-    
-#         # lr schedule
-#         if len(dev_f1_history) > 10 and dev_f1 <= dev_f1_history[-1] and \
-#                 opt['optim'] in ['sgd', 'adagrad']:
-#             current_lr *= opt['lr_decay']
-#             model.update_lr(current_lr)
-
-#         dev_f1_history += [dev_f1]
-#         print("")
-
+#         model

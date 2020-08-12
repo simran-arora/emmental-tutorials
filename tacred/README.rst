@@ -22,8 +22,8 @@ The TACRED dataset is available by request: https://nlp.stanford.edu/projects/ta
 Acknowledgements
 ----------------
 
-Much of the code in this tutorial was adapted from the tacredrel_. We thank all authors to provide these available online.
+Much of the code in this tutorial was adapted from the tacred-relation_ repo. We thank all authors for providing this online.
 
 .. _Emmental: https://github.com/SenWu/emmental
-.. _tacredrel: https://github.com/yuhaozhang/tacred-relation
+.. _tacred-relation: https://github.com/yuhaozhang/tacred-relation
 
