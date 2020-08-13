@@ -160,15 +160,17 @@ class PositionAwareRNN(nn.Module):
     
     def forward(self, words, masks, pos, ner, deprel, subj_pos, obj_pos, rels):
 
-#         batch = inputs[0]
-#         if self.opt['cuda']:
-#             inputs = [b.cuda() for b in batch[:7]]
-#             labels = batch[7].cuda()
-#         else:
-#             inputs = [b for b in batch[:7]]
-#             labels = batch[7]
-
-#         words, masks, pos, ner, deprel, subj_pos, obj_pos = inputs
+        if self.opt['cuda']:
+            words = words.cuda()
+            masks= masks.cuda()
+            pos = pos.cuda()
+            ner = ner.cuda()
+            deprel = deprel.cuda()
+            subj_pos = subj_pos.cuda()
+            obj_pos = obj_pos.cuda()
+            rels = rels.cuda()
+        
+        # words, masks, pos, ner, deprel, subj_pos, obj_pos = inputs
 
         seq_lens = list(masks.data.eq(constant.PAD_ID).long().sum(1).squeeze())
         batch_size = words.size()[0]
