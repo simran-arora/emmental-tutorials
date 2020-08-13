@@ -8,7 +8,7 @@
 #   - GPU_ID: GPU to use, or -1 for CPU. Defaults to 0.
 
 TASK=${1:-TACRED}
-DATA=${2:-tacred}
+DATA=${2:-tacred_test}
 VOCAB=${3:-vocab}
 LOGPATH=${4:-logs}
 SEED=${5:-1}
@@ -22,6 +22,7 @@ python run.py \
   --pos_dim 30 \
   --hidden_dim 200 \
   --num_layers 2 \
+  --seed 1234 \
   --attn_dim 200 \
   --pe_dim 30 \
   --n_epoch 30 \

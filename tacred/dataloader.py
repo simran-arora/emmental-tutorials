@@ -10,7 +10,6 @@ from emmental.data import EmmentalDataset
 from utils import constant, helper, vocab
 
 #some options in this file: choosing random seed, shuffling the data order, cleanup of the examples
-
 # """
 # Data loader for TACRED json files.
 # """
@@ -58,12 +57,13 @@ class TACREDDataset(EmmentalDataset):
         with open(filename) as infile:
             data = json.load(infile)
 
-        data = self.preprocess(data, vocab, opt)
-        # shuffle for training
-        if not evaluation:
-            indices = list(range(len(data)))
-            random.shuffle(indices)
-            data = [data[i] for i in indices]
+        data, words_lst, masks_lst, pos_lst, ner_lst, deprel_lst, subj_positions_lst, obj_positions_lst, relation_lst = self.preprocess(data, vocab, opt)
+
+        # shuffle for training TODO: add this back in 
+#         if not evaluation:
+#             indices = list(range(len(data)))
+#             random.shuffle(indices)
+#             data = [data[i] for i in indices]
 
         id2label = dict([(v,k) for k,v in constant.LABEL_TO_ID.items()])
         self.labels = [id2label[d[-1]] for d in data] 
@@ -71,52 +71,39 @@ class TACREDDataset(EmmentalDataset):
         
         #print("LABEL INFO: ", raw_labels[0], self.labels[0]) # 0 no_relation
         self.num_examples = len(data)
-        
-        data = [data[i:i+batch_size] for i in range(0, len(data), batch_size)] # split into batches
-        raw_labels = [raw_labels[i:i+batch_size] for i in range(0, len(raw_labels), batch_size)]
-        
-#         print("PRINTING SOME FACTS: ")
-#         print(type(data)) = list
-#         print(type(data[0])) = list
-#         print(type(data[0][0])) = tuple
-#         print(len(data)) = 1
-#         print(len(data[0])) = batch size
-#         print(len(data[0][0])) = num columns
-
 
         self.data = data
-        X_dict = {"data": []}
-        X_dict["data"] = data
+        X_dict = {}
+        X_dict["words"] = words_lst
+        X_dict["masks"] = masks_lst
+        X_dict["pos"] = pos_lst
+        X_dict["ner"] = ner_lst
+        X_dict["deprel"] = deprel_lst
+        X_dict["subj"] = subj_positions_lst
+        X_dict["obj"] = obj_positions_lst
+        X_dict["rels"] = relation_lst
         
         Y_dict = {}
-        labels_lst = []
-        
-        for lab in raw_labels:
-            labels_lst.append(lab)
-
-        labels_lst[-1] += [0] * (50 - len(labels_lst[-1])) # TODO: resolve this padding cleanly
-
-        #Y_dict["label"] = torch.from_numpy(np.array(labels_lst[0]))
-        Y_dict["label"] = torch.from_numpy(np.array(labels_lst))
-        #Y_dict["label"] = get_long_tensor(labels_lst,50)#, dtype=torch.int)
+        Y_dict["label"] = torch.from_numpy(np.array(relation_lst)) # TODO: get code review
                
         super().__init__(name, X_dict=X_dict, Y_dict=Y_dict)
 
     def preprocess(self, data, vocab, opt):
         """ Preprocess the data and convert to ids. """
         processed = []
-#         words_lst = []
-#         masks_lst = []
-#         pos_lst = []
-#         ner_lst = []
-#         deprel_lst = []
-#         subj_positions_lst = []
-#         obj_positions_lst = []
-#         relation_lst = []
+        words_lst = []
+        masks_lst = []
+        pos_lst = []
+        ner_lst = []
+        deprel_lst = []
+        subj_positions_lst = []
+        obj_positions_lst = []
+        relation_lst = []
         for d in data:
             tokens = d['token']
             if opt['lower']:
                 tokens = [t.lower() for t in tokens]
+            
             # anonymize tokens
             ss, se = d['subj_start'], d['subj_end']
             os, oe = d['obj_start'], d['obj_end']
@@ -132,18 +119,20 @@ class TACREDDataset(EmmentalDataset):
             relation = constant.LABEL_TO_ID[d['relation']]
             processed += [(tokens, pos, ner, deprel, subj_positions, obj_positions, relation)]
             
-            
-#             words_lst.append(words)
-#             masks_lst.append(masks)
-#             pos_lst.append(pos)
-#             ner_lst.append(ner)
-#             deprel_lst.append(deprel)
-#             subj_positions_lst.append(subj_positions)
-#             obj_positions_lst.append(obj_positions)
-#             relation_lst.append(relation)
+            # NOTE: Emmental should take care of padding
+            words = torch.tensor(tokens)
+            words_lst.append(words)
+            masks = torch.eq(words, 0)
+            masks_lst.append(torch.tensor(masks))
+            pos_lst.append(torch.tensor(pos))
+            ner_lst.append(torch.tensor(ner))
+            deprel_lst.append(torch.tensor(deprel))
+            subj_positions_lst.append(torch.tensor(subj_positions))
+            obj_positions_lst.append(torch.tensor(obj_positions))
+            relation_lst.append(torch.tensor(relation))
            
         #return processed
-        return processed
+        return processed, words_lst, masks_lst, pos_lst, ner_lst, deprel_lst, subj_positions_lst, obj_positions_lst, relation_lst
 
 
     def gold(self):
@@ -156,48 +145,8 @@ class TACREDDataset(EmmentalDataset):
     def __getitem__(self, key):
         """ Get a batch with index. """
 
-        if not isinstance(key, int):
-            raise TypeError
-        if key < 0 or key >= len(self.data):
-            raise IndexError
-        batch = self.data[key]
-        batch_size = len(batch)
-        batch = list(zip(*batch))
-#         print("BATCH INFO: ")
-#         print(len(batch))
-#         print(type(batch))
-#         print()
-        assert len(batch) == 7
-
-        # sort all fields by lens for easy RNN operations
-        lens = [len(x) for x in batch[0]]
-        batch, orig_idx = sort_all(batch, lens)
-        
-        # word dropout
-        if not self.eval:
-            words = [word_dropout(sent, self.opt['word_dropout']) for sent in batch[0]]
-        else:
-            words = batch[0]
-
-        # convert to tensors
-        words = get_long_tensor(words, batch_size)
-        masks = torch.eq(words, 0)
-        pos = get_long_tensor(batch[1], batch_size)
-        ner = get_long_tensor(batch[2], batch_size)
-        deprel = get_long_tensor(batch[3], batch_size)
-        subj_positions = get_long_tensor(batch[4], batch_size)
-        obj_positions = get_long_tensor(batch[5], batch_size)
-
-        rels = torch.LongTensor(batch[6])
-
-        # print(self.X_dict.keys())
-        self.X_dict['data'][key] = (words, masks, pos, ner, deprel, subj_positions, obj_positions, rels) # orig_idx
-        self.Y_dict['label'][key] = rels
         x_dict = {name: feature[key] for name, feature in self.X_dict.items()}
         y_dict = {name: label[key] for name, label in self.Y_dict.items()}
         return x_dict, y_dict
 
-    def __iter__(self):
-        for i in range(self.__len__()):
-            yield self.__getitem__(i)
     

@@ -158,27 +158,18 @@ class PositionAwareRNN(nn.Module):
         else:
             return h0, c0
     
-    def forward(self, inputs):
+    def forward(self, words, masks, pos, ner, deprel, subj_pos, obj_pos, rels):
 
-#         print("VARIABLE INFO IN FORWARD: ")
-#         print(len(inputs), type(inputs)) # TODO: debug, for some reason this is equal to the batch size
-#         print(len(inputs[0]), type(inputs[0]))
-#         print(len(inputs[0][0]), type(inputs[0][0]))
+#         batch = inputs[0]
+#         if self.opt['cuda']:
+#             inputs = [b.cuda() for b in batch[:7]]
+#             labels = batch[7].cuda()
+#         else:
+#             inputs = [b for b in batch[:7]]
+#             labels = batch[7]
 
-        batch = inputs[0]
-        if self.opt['cuda']:
-            inputs = [b.cuda() for b in batch[:7]]
-            labels = batch[7].cuda()
-        else:
-            inputs = [b for b in batch[:7]]
-            labels = batch[7]
+#         words, masks, pos, ner, deprel, subj_pos, obj_pos = inputs
 
-        words, masks, pos, ner, deprel, subj_pos, obj_pos = inputs
-#         print('mask type: ', type(masks))
-#         print('mask size: ', masks.size())
-#         print('mask[0]: ', masks[0])
-
-        
         seq_lens = list(masks.data.eq(constant.PAD_ID).long().sum(1).squeeze())
         batch_size = words.size()[0]
         

@@ -119,15 +119,6 @@ if __name__ == "__main__":
     assert emb_matrix.shape[1] == opt['emb_dim']
 
     emmental.init(config["meta_config"]["log_path"], config=config)
-    
-    # TODO: this is from TACRED code -- is this already handled somewhere in emmental?
-    torch.manual_seed(args.seed)
-    np.random.seed(args.seed)
-    random.seed(1234)
-    if args.cpu:
-        args.cuda = False
-    elif args.cuda:
-        torch.cuda.manual_seed(args.seed)
 
     # Log configuration into files
 #     cmd_msg = " ".join(sys.argv)
@@ -158,14 +149,14 @@ if __name__ == "__main__":
         logger.info(
             f"Loaded {split} for {name} containing {len(dataset)} samples."
         )
-        print(f"Loaded {split} for {name} containing {len(dataset)} samples.")
+        
         dataloaders.append(
             EmmentalDataLoader(
                 task_to_label_dict={name: "label"},
                 dataset=dataset,
                 split=split,
                 shuffle=True if split == "train" else False,
-                batch_size=1,#args.batch_size,
+                batch_size=2,#args.batch_size, #1
                 #num_workers=8,
             )
         )
@@ -181,7 +172,7 @@ if __name__ == "__main__":
     print('Made tasks!')
 
     
-    ### MODEL ###
+#     ### MODEL ###
     model = EmmentalModel(name="Tacred_task")
     print('Made model!')
 
@@ -198,21 +189,21 @@ if __name__ == "__main__":
     ### SCORER ###
     scores = model.score(dataloaders)
     print("SCORES: ", scores)
-#     logger.info(f"Metrics: {scores}")
-#     write_to_json_file(f"{Meta.log_path}/metrics.txt", scores)
+    logger.info(f"Metrics: {scores}")
+    #write_to_json_file(f"{Meta.log_path}/metrics.txt", scores)
 
     
     
-#     ### CHECKPOINTING ###
-#     if args.checkpointing:
-#         logger.info(
-#             f"Best metrics: "
-#             f"{emmental_learner.logging_manager.checkpointer.best_metric_dict}"
-#         )
-#         write_to_file(
-#             f"{Meta.log_path}/best_metrics.txt",
-#             emmental_learner.logging_manager.checkpointer.best_metric_dict,
-#         )
+    ### CHECKPOINTING ###
+    if args.checkpointing:
+        logger.info(
+            f"Best metrics: "
+            f"{emmental_learner.logging_manager.checkpointer.best_metric_dict}"
+        )
+        write_to_file(
+            f"{Meta.log_path}/best_metrics.txt",
+            emmental_learner.logging_manager.checkpointer.best_metric_dict,
+        )
         
 # #     model_file = model_save_dir + '/checkpoint_epoch_{}.pt'.format(epoch)
 # #     model.save(model_file, epoch)
